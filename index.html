@@ -2,313 +2,275 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NEURAL NEXUS // SCROLL_SYNC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <title>NEURAL NEXUS // MOTION_STABLE_V8</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #010101;
+            --bg: #000000;
             --surface: #0a0a0a;
             --accent: #00ff66;
-            --accent-glow: rgba(0, 255, 102, 0.4);
+            --accent-glow: rgba(0, 255, 102, 0.5);
             --text: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.4);
+            --text-dim: rgba(255, 255, 255, 0.3);
             --border: rgba(255, 255, 255, 0.08);
-            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+            --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
         }
 
+        /* RESET */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { width: 100%; min-height: 100%; background-color: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; -webkit-font-smoothing: antialiased; }
 
-        /* Custom Scrollbar for Terminal Aesthetic */
-        ::-webkit-scrollbar { width: 4px; }
+        /* CINEMATIC SCROLLBAR */
+        ::-webkit-scrollbar { width: 2px; }
         ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; box-shadow: 0 0 10px var(--accent-glow); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
 
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Space Grotesk', sans-serif;
-            overflow-x: hidden;
-            overflow-y: auto;
-            -webkit-font-smoothing: antialiased;
-        }
+        body { overflow-x: hidden; overflow-y: auto; }
+        body.locked { overflow: hidden; height: 100vh; }
 
-        body.locked { overflow: hidden; }
+        /* DYNAMIC LAYERS */
+        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10000; pointer-events: none; opacity: 0.1; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px; }
+        .mesh-bg { position: fixed; top: -10%; left: -10%; width: 120%; height: 120%; z-index: -1; background: radial-gradient(circle at center, #0a1a10 0%, #000000 100%); opacity: 0.5; transition: transform 0.8s var(--ease-out-expo); will-change: transform; }
 
-        /* HUD & PROGRESS */
-        .hud {
-            position: fixed; top: 0; left: 0; width: 100%; height: 4px;
-            z-index: 1000; pointer-events: none;
-        }
-        #scroll-progress {
-            height: 100%; width: 0%; background: var(--accent);
-            box-shadow: 0 0 20px var(--accent); transition: width 0.1s ease-out;
-        }
+        /* HUD & MOTION PROGRESS */
+        .hud-progress-container { position: fixed; top: 0; left: 0; width: 100%; height: 2px; z-index: 15000; background: rgba(255,255,255,0.02); }
+        .hud-progress-fill { height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 15px var(--accent); transition: width 0.2s cubic-bezier(0.1, 0.7, 0.1, 1); }
+        
+        .hud-meta { position: fixed; top: 1.5rem; left: 2rem; right: 2rem; display: flex; justify-content: space-between; font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); z-index: 9000; pointer-events: none; text-transform: uppercase; letter-spacing: 0.15em; }
 
-        .hud-labels {
-            position: fixed; top: 2rem; left: 3rem; right: 3rem;
-            display: flex; justify-content: space-between;
-            font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent);
-            z-index: 900; pointer-events: none; letter-spacing: 0.2em;
-        }
-
-        /* HYPER-REAL PRELOADER */
+        /* PRELOADER (APERTURE TRANSITION) */
         #preloader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg); z-index: 10000;
+            background: #000; z-index: 20000;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.8s var(--ease), visibility 0.8s;
+            transition: transform 1.2s var(--ease-in-out), clip-path 1.2s var(--ease-in-out);
+            clip-path: inset(0 0 0 0);
         }
-        .loader-content { width: 85%; max-width: 320px; }
-        .boot-log { font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); height: 140px; overflow: hidden; opacity: 0.7; margin-bottom: 2rem; line-height: 1.6; }
-        .boot-bar-container { width: 100%; height: 2px; background: var(--border); position: relative; }
-        .boot-bar-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
-        .boot-status { display: flex; justify-content: space-between; font-family: 'JetBrains Mono'; font-size: 0.65rem; margin-top: 1rem; color: var(--text-dim); }
+        #preloader.exit { clip-path: inset(50% 0 50% 0); }
 
-        /* SYNC TRANSITION OVERLAY */
-        #sync-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 255, 102, 0.05);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 5000; opacity: 0; pointer-events: none;
-            transition: opacity 0.4s var(--ease);
-            backdrop-filter: blur(40px);
-        }
-        #sync-overlay.active { opacity: 1; }
+        .loader-box { width: 280px; transform: scale(0.9); opacity: 0; animation: scaleIn 0.8s forwards 0.2s; }
+        @keyframes scaleIn { to { transform: scale(1); opacity: 1; } }
 
-        /* BACKGROUND MESH PARALLAX */
-        .mesh-bg { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 120%; 
-            z-index: -1; background: radial-gradient(circle at center, #112211 0%, #010101 100%); 
-            opacity: 0.4; transition: transform 0.1s linear;
-        }
+        .boot-log { font-family: 'JetBrains Mono'; font-size: 0.5rem; color: var(--accent); height: 80px; overflow: hidden; margin-bottom: 2rem; line-height: 1.8; opacity: 0.6; }
+        .boot-bar { width: 100%; height: 1px; background: rgba(255,255,255,0.05); position: relative; }
+        .boot-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
 
-        /* MAIN SECTIONS */
-        section {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 8rem 2rem;
-            position: relative;
-        }
+        /* MAIN CONTENT REVEAL */
+        #main-content { opacity: 0; filter: blur(20px); transition: opacity 1.5s var(--ease-out-expo), filter 1.5s var(--ease-out-expo); }
+        #main-content.visible { opacity: 1; filter: blur(0); }
 
-        .hero-section { text-align: center; }
-        .hero-section h1 { 
-            font-size: clamp(3rem, 15vw, 9rem); font-weight: 800; letter-spacing: -0.05em; 
-            line-height: 0.8; margin-bottom: 2rem;
-        }
-        .hero-section p { font-family: 'JetBrains Mono'; font-size: 0.75rem; color: var(--accent); letter-spacing: 0.5em; text-transform: uppercase; }
+        section { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6rem 2rem; position: relative; }
 
-        /* SCROLL REVEAL CLASS */
-        .reveal {
-            opacity: 0;
-            transform: translateY(50px);
-            transition: all 1s var(--ease);
+        .hero h1 { 
+            font-size: clamp(3.5rem, 15vw, 12rem); font-weight: 800; letter-spacing: -0.06em; line-height: 0.75; text-align: center; margin-bottom: 2rem;
+            transform: translateY(20px); transition: transform 1.2s var(--ease-out-expo);
         }
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        #main-content.visible .hero h1 { transform: translateY(0); }
 
-        /* GRID SYSTEM */
-        .selection-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            width: 100%;
-            max-width: 1400px;
-            perspective: 1000px;
+        /* REVEAL PHYSICS */
+        .reveal { 
+            opacity: 0; transform: translateY(60px) scale(0.98); filter: blur(10px);
+            transition: opacity 1s var(--ease-out-expo), transform 1s var(--ease-out-expo), filter 1s var(--ease-out-expo);
         }
-        @media (min-width: 1200px) { .selection-grid { grid-template-columns: repeat(2, 1fr); gap: 4rem; } }
+        .reveal.active { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+
+        /* STAGGERED GRID */
+        .node-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; width: 100%; max-width: 1200px; margin-top: 4rem; }
+        @media (min-width: 768px) { .node-grid { grid-template-columns: repeat(2, 1fr); } }
 
         .node-card {
-            background: rgba(10, 10, 10, 0.4); border: 1px solid var(--border);
-            padding: clamp(3rem, 8vw, 6rem) 3rem; border-radius: 40px;
-            text-align: left; transition: all 0.6s var(--ease);
-            position: relative; overflow: hidden; cursor: pointer;
-            backdrop-filter: blur(10px);
+            background: rgba(15, 15, 15, 0.3); border: 1px solid var(--border);
+            padding: 5rem 3rem; border-radius: 40px; text-align: left;
+            transition: all 0.6s var(--ease-out-expo); cursor: pointer; backdrop-filter: blur(12px);
         }
-        .node-card:hover { border-color: var(--accent); transform: translateZ(20px) rotateX(2deg) rotateY(-2deg); background: rgba(0, 255, 102, 0.03); }
-        .node-card .id { font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); display: block; margin-bottom: 2rem; }
-        .node-card h3 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
-        .node-card .desc { font-size: 0.95rem; color: var(--text-dim); line-height: 1.6; max-width: 400px; }
+        .node-card:hover { 
+            border-color: var(--accent); background: rgba(0, 255, 102, 0.04);
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+        }
 
-        /* DETAILS OVERLAY (CODEBASE VIEW) */
-        #details-overlay {
+        .node-card .id { font-family: 'JetBrains Mono'; font-size: 0.65rem; color: var(--accent); display: block; margin-bottom: 2rem; letter-spacing: 0.2em; opacity: 0.5; }
+        .node-card h3 { font-size: 1.8rem; font-weight: 700; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+        .node-card p { font-size: 0.9rem; color: var(--text-dim); line-height: 1.6; }
+
+        /* HANDSHAKE SYNC TRANSITION */
+        #handshake {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; transform: translateX(100%); transition: transform 0.8s var(--ease);
-            z-index: 2000; padding: 6rem 3rem; overflow-y: auto;
+            background: rgba(0,0,0,0.9); z-index: 18000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: 0.6s var(--ease-in-out);
+            backdrop-filter: blur(30px);
         }
-        #details-overlay.active { transform: translateX(0); }
-        .close-trigger { 
-            position: sticky; top: 0; float: right; font-family: 'JetBrains Mono'; 
-            font-size: 0.7rem; color: var(--accent); cursor: pointer; z-index: 2001;
-            padding: 1rem 2rem; border: 1px solid var(--border); border-radius: 10px; background: #000;
-        }
+        #handshake.active { opacity: 1; visibility: visible; }
 
-        .overlay-header { max-width: 1200px; margin: 0 auto 6rem; }
-        .repo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 3rem; max-width: 1200px; margin: 0 auto; }
-        .repo-item { border-left: 1px solid var(--accent); padding: 2rem; transition: 0.3s; background: rgba(255,255,255,0.01); border-radius: 0 24px 24px 0; }
-        .repo-item:hover { transform: scale(1.02); background: rgba(0,255,102,0.02); }
+        /* OVERLAY REPOSITORY VIEW */
+        #repo-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 19000; transform: translateY(100%);
+            transition: transform 0.8s var(--ease-in-out); overflow-y: auto; padding: 6rem 2rem;
+        }
+        #repo-overlay.active { transform: translateY(0); }
 
         /* CURSOR */
-        #cursor { 
-            position: fixed; width: 20px; height: 20px; border: 1.5px solid var(--accent); 
-            border-radius: 50%; pointer-events: none; z-index: 30000; mix-blend-mode: difference; 
-            transition: transform 0.1s; display: none;
-        }
+        #cursor { position: fixed; width: 24px; height: 24px; border: 1px solid var(--accent); border-radius: 50%; pointer-events: none; z-index: 30000; mix-blend-mode: difference; transition: transform 0.1s; display: none; }
         @media (hover: hover) { #cursor { display: block; } }
 
-        /* MOBILE OPTIMIZATIONS */
-        @media (max-width: 768px) {
-            .hud-labels { left: 1.5rem; right: 1.5rem; top: 1.5rem; }
-            section { padding: 6rem 1.5rem; }
-            .node-card { padding: 3rem 2rem; border-radius: 30px; }
-            .node-card h3 { font-size: 1.8rem; }
-        }
+        footer { padding: 10rem 2rem; text-align: center; border-top: 1px solid var(--border); font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.3em; }
     </style>
 </head>
 <body class="locked">
 
-    <div class="hud"><div id="scroll-progress"></div></div>
+    <div class="scanlines"></div>
+    <div class="hud-progress-container"><div class="hud-progress-fill" id="p-bar"></div></div>
 
-    <!-- PRELOADER -->
+    <!-- CINEMATIC LOADER -->
     <div id="preloader">
-        <div class="loader-content">
+        <div class="loader-box">
             <div class="boot-log" id="boot-log"></div>
-            <div class="boot-bar-container"><div class="boot-bar-fill" id="boot-fill"></div></div>
-            <div class="boot-status"><span id="boot-text">SCROLL_SYNC_V4</span><span id="boot-perc">0%</span></div>
+            <div class="boot-bar"><div class="boot-fill" id="boot-fill"></div></div>
+            <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono'; font-size: 0.5rem; margin-top: 0.8rem; color: var(--text-dim); letter-spacing: 0.1em;">
+                <span>V8_MOTION_STABLE</span>
+                <span id="boot-perc">0%</span>
+            </div>
         </div>
     </div>
 
-    <!-- SYNC OVERLAY -->
-    <div id="sync-overlay"><div style="font-family: 'JetBrains Mono'; color: var(--accent); letter-spacing: 0.3em;">SYNCING_DOMAIN...</div></div>
+    <!-- CODEBASE SYNC OVERLAY -->
+    <div id="handshake">
+        <div style="font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); letter-spacing: 0.3em;" id="hs-msg">ESTABLISHING_DATA_BRIDGE...</div>
+        <div style="width: 150px; height: 1px; background: rgba(0,255,102,0.2); margin-top: 1.5rem; overflow: hidden; position: relative;">
+            <div style="position: absolute; left: -100%; width: 100%; height: 100%; background: var(--accent); animation: hs-slide 1.2s infinite;" id="hs-bar"></div>
+        </div>
+    </div>
+    <style> @keyframes hs-slide { 100% { left: 100%; } } </style>
 
     <div id="cursor"></div>
     <div class="mesh-bg" id="mesh"></div>
 
-    <div class="hud-labels">
-        <span>NEURAL NEXUS // SCROLL_INFRASTRUCTURE</span>
+    <div class="hud-meta">
+        <span>NEURAL NEXUS // COMMAND_OS_V8</span>
         <span id="clock">00:00:00 UTC</span>
     </div>
 
-    <section class="hero-section">
-        <div class="reveal">
-            <p>Proprietary Intelligence Organization</p>
+    <main id="main-content">
+        <section class="hero">
+            <p>Intelligence Synchronized</p>
             <h1>NEURAL<br>NEXUS</h1>
-            <div style="font-family: 'JetBrains Mono'; color: var(--text-dim); margin-top: 4rem; font-size: 0.7rem; animation: pulse 2s infinite;">[ SCROLL TO DISCOVER ]</div>
-        </div>
-    </section>
+            <div style="font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); margin-top: 5rem; letter-spacing: 0.5em; opacity: 0.5;">[ PULL TO CONNECT ]</div>
+        </section>
 
-    <section id="discovery">
-        <div class="selection-grid">
-            <div class="node-card reveal" onclick="bridge('ml')">
-                <span class="id">SYSTEM_01</span>
-                <h3>CORE ML</h3>
-                <p class="desc">Predictive modeling architectures and statistical pattern synthesis for high-dimensional datasets.</p>
+        <section id="nodes">
+            <div class="node-grid">
+                <div class="node-card reveal" onclick="sync('ml')">
+                    <span class="id">CODE_NODE_01</span>
+                    <h3>CORE MACHINE LEARNING</h3>
+                    <p>Foundational predictive modeling, classification clusters, and algorithmic discovery architectures.</p>
+                </div>
+                <div class="node-card reveal" onclick="sync('ai')">
+                    <span class="id">CODE_NODE_02</span>
+                    <h3>ADVANCED ARTIFICIAL INTELLIGENCE</h3>
+                    <p>Neural synthesis networks, large-scale transformer logic, and visual perception protocols.</p>
+                </div>
+                <div class="node-card reveal" onclick="sync('data')">
+                    <span class="id">CODE_NODE_03</span>
+                    <h3>DATA ENGINEERING & ANALYTICS</h3>
+                    <p>High-throughput data pipelines, statistical modeling, and temporal forecasting frameworks.</p>
+                </div>
+                <div class="node-card reveal" onclick="sync('ops')">
+                    <span class="id">CODE_NODE_04</span>
+                    <h3>OPERATIONS & DEPLOYMENT</h3>
+                    <p>Production-grade MLOps architectures, containerization, and automated integration strategies.</p>
+                </div>
             </div>
-            <div class="node-card reveal" onclick="bridge('ai')">
-                <span class="id">SYSTEM_02</span>
-                <h3>ADV AI</h3>
-                <p class="desc">Neural synthesis networks, transformer logic, and visual perception pipelines.</p>
-            </div>
-            <div class="node-card reveal" onclick="bridge('data')">
-                <span class="id">SYSTEM_03</span>
-                <h3>DATA OPS</h3>
-                <p class="desc">High-throughput ETL infrastructure and temporal forecasting frameworks.</p>
-            </div>
-            <div class="node-card reveal" onclick="bridge('ops')">
-                <span class="id">SYSTEM_04</span>
-                <h3>DEPLOY</h3>
-                <p class="desc">Production-grade MLOps architectures and automated containerization strategies.</p>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- CODEBASE OVERLAY -->
-    <div id="details-overlay">
-        <div class="close-trigger" onclick="disconnect()">CLOSE_LINK</div>
-        <div class="overlay-header">
-            <h2 id="cluster-title" style="font-size: clamp(2rem, 10vw, 5rem); font-weight: 800; letter-spacing: -0.05em;">CLUSTER</h2>
-            <p id="cluster-status" style="font-family: 'JetBrains Mono'; color: var(--accent); margin-top: 2rem;">LIVE_CODEBASE_SYNC: ESTABLISHED</p>
+        <footer>
+            &copy; 2026 // NEURAL NEXUS // ALL SYSTEMS OPERATIONAL
+        </footer>
+    </main>
+
+    <!-- REPOSITORY OVERLAY -->
+    <div id="repo-overlay">
+        <div style="max-width: 1000px; margin: 0 auto; position: relative;">
+            <div style="position: sticky; top: 0; padding-bottom: 2rem; background: #000; z-index: 10;">
+                <span onclick="disconnect()" style="font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); cursor: pointer; border: 1px solid var(--border); padding: 0.8rem 1.5rem; border-radius: 100px;">[ DISCONNECT_SESSION ]</span>
+            </div>
+            <h2 id="over-title" style="font-size: clamp(2rem, 8vw, 4rem); font-weight: 800; letter-spacing: -0.05em; margin: 4rem 0 1rem;">CODEBASE</h2>
+            <p style="font-family: 'JetBrains Mono'; font-size: 0.75rem; color: var(--accent); margin-bottom: 5rem;">SYNC_LINK: ESTABLISHED</p>
+            <div id="repo-list" style="display: grid; gap: 2.5rem;"></div>
         </div>
-        <div class="repo-list" id="repo-list"></div>
     </div>
 
-    <footer style="padding: 10rem 2rem; text-align: center; border-top: 1px solid var(--border);">
-        <p style="font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); letter-spacing: 0.5em; opacity: 0.5;">
-            &copy; 2026 NEURAL NEXUS // SECURE CORE // V4.0.1
-        </p>
-    </footer>
-
     <script>
-        let projects = [];
-        const bootLogs = ["VERIFYING_SCROLL_MODULES...", "MAPPING_DEPTH_BUFFERS...", "CACHING_DOMAINS...", "SYNCHRONIZING_INTERFACE...", "SCROLL_ENGINE: READY."];
+        let allProjects = [];
+        const bootLogs = ["VERIFYING_MOTION_DRIVERS...", "INITIALIZING_APERTURE...", "BUILDING_DATA_BRIDGE...", "STABILIZING_SCROLL_SYNC...", "READY_FOR_DEPLOYMENT."];
 
-        // SCROLL REVEAL & PROGRESS
-        function handleScroll() {
-            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        // 1. SCROLL & MOTION
+        function onScroll() {
+            const winScroll = window.pageYOffset || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - window.innerHeight;
             const scrolled = (winScroll / height) * 100;
-            document.getElementById("scroll-progress").style.width = scrolled + "%";
+            document.getElementById("p-bar").style.width = scrolled + "%";
 
-            // Parallax Mesh
-            document.getElementById('mesh').style.transform = `translateY(${winScroll * 0.2}px)`;
+            // Mesh Zoom & Parallax
+            const zoom = 1 + (winScroll / height) * 0.1;
+            document.getElementById('mesh').style.transform = `translateY(${winScroll * 0.1}px) scale(${zoom})`;
 
-            // Reveal Elements
-            document.querySelectorAll('.reveal').forEach(el => {
+            // Smooth Reveal with staggered delays
+            document.querySelectorAll('.reveal').forEach((el, i) => {
                 const rect = el.getBoundingClientRect();
-                if (rect.top < window.innerHeight * 0.85) el.classList.add('active');
+                if (rect.top < window.innerHeight * 0.9) {
+                    setTimeout(() => el.classList.add('active'), i * 50);
+                }
             });
         }
 
-        async function init() {
+        // 2. DATA
+        async function load() {
             try {
                 const res = await fetch('projects.json');
-                projects = await res.json();
-            } catch (e) { console.error("Data error."); }
+                allProjects = await res.json();
+            } catch (e) { console.warn("Sync failed."); }
         }
 
-        function bridge(cat) {
-            const overlay = document.getElementById('sync-overlay');
-            overlay.classList.add('active');
-            
+        // 3. CODEBASE BRIDGE
+        function sync(cat) {
+            const hs = document.getElementById('handshake');
+            hs.classList.add('active');
+            document.getElementById('hs-msg').textContent = "LINKING_REPOSITORIES...";
+
             setTimeout(() => {
-                const meta = {
-                    ml: "CORE MACHINE LEARNING",
-                    ai: "ADVANCED AI ARCHITECTURE",
-                    data: "DATA OPERATIONS HUB",
-                    ops: "DEPLOYMENT & MLOPS"
-                };
-                document.getElementById('cluster-title').textContent = meta[cat];
-                const filtered = projects.filter(p => p.category === cat);
+                const titles = { ml: "CORE_MACHINE_LEARNING", ai: "ADVANCED_AI_NETWORKS", data: "DATA_SYSTEMS_ARCHIVE", ops: "OPERATIONS_HUB" };
+                document.getElementById('over-title').textContent = titles[cat];
+                const filtered = allProjects.filter(p => p.category === cat);
                 document.getElementById('repo-list').innerHTML = filtered.map(p => `
-                    <div class="repo-item">
-                        <h4>${p.name.toUpperCase()}</h4>
-                        <p>${p.desc}</p>
-                        <a href="${p.url}" target="_blank" style="color: var(--accent); text-decoration: none; font-family: 'JetBrains Mono'; font-size: 0.7rem;">VIEW SOURCE ➔</a>
+                    <div style="border-left: 2px solid var(--accent); padding-left: 2.5rem; transition: 0.4s;">
+                        <h4 style="font-size: 1.3rem; margin-bottom: 1rem;">${p.name.toUpperCase()}</h4>
+                        <p style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 2rem; line-height: 1.6;">${p.desc}</p>
+                        <a href="${p.url}" target="_blank" style="font-family: 'JetBrains Mono'; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); padding: 0.6rem 1.2rem; border-radius: 100px; font-size: 0.75rem;">ESTABLISH_SOURCE_LINK ➔</a>
                     </div>
                 `).join('');
-                overlay.classList.remove('active');
-                document.getElementById('details-overlay').classList.add('active');
+                
+                hs.classList.remove('active');
+                document.getElementById('repo-overlay').classList.add('active');
                 document.body.classList.add('locked');
-            }, 600);
+            }, 1000);
         }
 
         function disconnect() {
-            document.getElementById('details-overlay').classList.remove('active');
+            document.getElementById('repo-overlay').classList.remove('active');
             document.body.classList.remove('locked');
         }
 
-        // PRELOADER ENGINE
+        // 4. BOOT ENGINE
         let logIdx = 0, progress = 0;
         function runBoot() {
             if (progress < 100) {
-                progress += Math.random() * 10;
+                progress += Math.random() * 12;
                 if (progress > 100) progress = 100;
                 document.getElementById('boot-fill').style.width = progress + '%';
                 document.getElementById('boot-perc').textContent = Math.floor(progress) + '%';
@@ -319,30 +281,30 @@
                 }
                 setTimeout(runBoot, 50);
             } else {
-                setTimeout(() => {
-                    document.getElementById('preloader').style.opacity = '0';
-                    setTimeout(() => {
-                        document.getElementById('preloader').style.visibility = 'hidden';
-                        document.body.classList.remove('locked');
-                        handleScroll(); // Initial check
-                    }, 800);
-                }, 400);
+                setTimeout(finishBoot, 400);
             }
         }
 
-        // Clock
-        setInterval(() => {
-            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'UTC' }) + ' UTC';
-        }, 1000);
+        function finishBoot() {
+            const preloader = document.getElementById('preloader');
+            preloader.classList.add('exit');
+            setTimeout(() => {
+                preloader.style.visibility = 'hidden';
+                document.body.classList.remove('locked');
+                document.getElementById('main-content').classList.add('visible');
+                onScroll();
+            }, 1000);
+        }
 
-        // Cursor
+        // 5. HUD & CURSOR
+        setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'UTC' }) + ' UTC'; }, 1000);
         document.addEventListener('mousemove', (e) => {
             const c = document.getElementById('cursor');
-            if(c) c.style.transform = `translate(${e.clientX - 10}px, ${e.clientY - 10}px)`;
+            if(c) { c.style.left = e.clientX - 12 + 'px'; c.style.top = e.clientY - 12 + 'px'; }
         });
 
-        window.onscroll = handleScroll;
-        window.onload = () => { init(); runBoot(); };
+        window.onscroll = onScroll;
+        window.onload = () => { load(); runBoot(); };
     </script>
 </body>
 </html>
