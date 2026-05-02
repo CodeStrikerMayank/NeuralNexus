@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEURAL NEXUS // SYNC_INTERFACE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #010101;
+            --surface: #0a0a0a;
+            --accent: #00ff66;
+            --accent-glow: rgba(0, 255, 102, 0.4);
+            --text: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.4);
+            --border: rgba(255, 255, 255, 0.08);
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* DATA SYNC LOADER */
+        #preloader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 10000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.8s var(--ease), visibility 0.8s;
+        }
+        .loader-content { width: 85%; max-width: 320px; }
+        .boot-log { font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); height: 140px; overflow: hidden; opacity: 0.7; margin-bottom: 2rem; line-height: 1.6; }
+        .boot-bar-container { width: 100%; height: 2px; background: var(--border); position: relative; }
+        .boot-bar-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+        .boot-status { display: flex; justify-content: space-between; font-family: 'JetBrains Mono'; font-size: 0.65rem; margin-top: 1rem; color: var(--text-dim); }
+
+        /* HUD AREA */
+        .hud {
+            position: fixed; top: 2rem; left: 3rem; right: 3rem;
+            display: flex; justify-content: space-between;
+            font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent);
+            z-index: 100; pointer-events: none; letter-spacing: 0.2em;
+        }
+
+        /* DATA SYNC OVERLAY (TRANSITION EFFECT) */
+        #sync-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 255, 102, 0.05);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 5000; opacity: 0; pointer-events: none;
+            transition: opacity 0.4s var(--ease);
+            backdrop-filter: blur(20px);
+        }
+        #sync-overlay.active { opacity: 1; }
+        .sync-msg { font-family: 'JetBrains Mono'; font-size: 0.8rem; color: var(--accent); letter-spacing: 0.3em; }
+
+        /* MAIN TERMINAL */
+        #nexus-terminal {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 4rem 2rem;
+            transition: transform 1s var(--ease), filter 0.8s;
+        }
+
+        .terminal-header { text-align: center; margin-bottom: 5rem; }
+        .terminal-header h1 { 
+            font-size: clamp(2.5rem, 10vw, 7rem); font-weight: 800; letter-spacing: -0.05em; 
+            line-height: 0.9; margin-bottom: 1rem;
+        }
+        .terminal-header p { font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); letter-spacing: 0.3em; text-transform: uppercase; }
+
+        /* GRID SYSTEM */
+        .selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1400px;
+        }
+        @media (min-width: 1200px) { .selection-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .node-card {
+            background: rgba(10, 10, 10, 0.6); border: 1px solid var(--border);
+            padding: 3rem 2rem; border-radius: 24px;
+            text-align: center; transition: all 0.5s var(--ease);
+            position: relative; overflow: hidden; cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+        .node-card:hover { border-color: var(--accent); transform: translateY(-10px); background: rgba(0, 255, 102, 0.02); }
+        .node-card .id { font-family: 'JetBrains Mono'; font-size: 0.6rem; color: var(--accent); display: block; margin-bottom: 1rem; }
+        .node-card h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; }
+        .node-card .desc { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; }
+
+        /* DETAILS VIEW (CODEBASE VIEW) */
+        #details-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; transform: translateY(100%); transition: transform 0.6s var(--ease);
+            z-index: 2000; padding: 6rem 3rem; overflow-y: auto;
+        }
+        #details-overlay.active { transform: translateY(0); }
+        .close-trigger { 
+            position: fixed; top: 2rem; right: 3rem; font-family: 'JetBrains Mono'; 
+            font-size: 0.7rem; color: var(--accent); cursor: pointer; z-index: 2001;
+            padding: 0.8rem 1.5rem; border: 1px solid var(--accent); border-radius: 100px;
+        }
+
+        .overlay-header { max-width: 1200px; margin: 0 auto 4rem; }
+        .overlay-header h2 { font-size: clamp(2rem, 8vw, 4rem); font-weight: 800; letter-spacing: -0.04em; }
+        .overlay-header .code-sync-status { font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); margin-top: 1.5rem; display: flex; align-items: center; gap: 1rem; }
+        .pulse-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
+
+        .repo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 3rem; max-width: 1200px; margin: 0 auto; }
+        .repo-item { border-left: 1px solid var(--border); padding: 2rem; transition: 0.3s; background: rgba(255,255,255,0.01); border-radius: 0 20px 20px 0; }
+        .repo-item:hover { border-left-color: var(--accent); background: rgba(0,255,102,0.02); transform: translateX(10px); }
+        .repo-item h4 { font-size: 1.1rem; margin-bottom: 1rem; color: #fff; }
+        .repo-item p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 2rem; line-height: 1.6; }
+        .repo-link { 
+            display: inline-block; font-family: 'JetBrains Mono'; font-size: 0.7rem; color: var(--accent); 
+            text-decoration: none; border: 1px solid var(--accent); padding: 0.8rem 1.5rem; border-radius: 100px; transition: 0.3s;
+        }
+        .repo-link:hover { background: var(--accent); color: #000; }
+
+        /* CURSOR */
+        #cursor { 
+            position: fixed; width: 24px; height: 24px; border: 1.5px solid var(--accent); 
+            border-radius: 50%; pointer-events: none; z-index: 30000; mix-blend-mode: difference; 
+            transition: transform 0.1s; display: none;
+        }
+        @media (hover: hover) { #cursor { display: block; } }
+
+        @media (max-width: 768px) {
+            .hud { left: 2rem; right: 2rem; }
+            #nexus-terminal { padding: 4rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HYPER-REAL PRELOADER -->
+    <div id="preloader">
+        <div class="loader-content">
+            <div class="boot-log" id="boot-log"></div>
+            <div class="boot-bar-container">
+                <div class="boot-bar-fill" id="boot-fill"></div>
+            </div>
+            <div class="boot-status">
+                <span id="boot-text">SYNC_INTERFACE_V3</span>
+                <span id="boot-perc">0%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYNC TRANSITION OVERLAY -->
+    <div id="sync-overlay">
+        <div class="sync-msg" id="sync-msg">LINKING_CODEBASE...</div>
+    </div>
+
+    <div id="cursor"></div>
+
+    <div class="hud">
+        <span>NEURAL NEXUS // SECURE_SYNC</span>
+        <span id="clock">00:00:00 UTC</span>
+    </div>
+
+    <main id="nexus-terminal">
+        <div class="terminal-header">
+            <p>Codebase Synchronization Hub</p>
+            <h1>NEURAL NEXUS</h1>
+        </div>
+
+        <div class="selection-grid">
+            <div class="node-card" onclick="bridgeToCode('ml')">
+                <span class="id">[ 01_ML_CORE ]</span>
+                <h3>MACHINE LEARNING</h3>
+                <p class="desc">Encapsulated predictive logic and statistical pattern architectures.</p>
+            </div>
+            <div class="node-card" onclick="bridgeToCode('ai')">
+                <span class="id">[ 02_ADV_AI ]</span>
+                <h3>ADVANCED AI</h3>
+                <p class="desc">Neural synthesis networks and vision processing protocols.</p>
+            </div>
+            <div class="node-card" onclick="bridgeToCode('data')">
+                <span class="id">[ 03_DATA_ENG ]</span>
+                <h3>DATA ENGINEERING</h3>
+                <p class="desc">Temporal infrastructure and high-throughput ETL pipelines.</p>
+            </div>
+            <div class="node-card" onclick="bridgeToCode('ops')">
+                <span class="id">[ 04_MLOPS ]</span>
+                <h3>OPERATIONS</h3>
+                <p class="desc">Production-grade deployment and containerization strategies.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- CODEBASE OVERLAY -->
+    <div id="details-overlay">
+        <div class="close-trigger" onclick="disconnectCode()">DISCONNECT_CODEBASE</div>
+        <div class="overlay-header">
+            <h2 id="cluster-title">CLUSTER</h2>
+            <div class="code-sync-status">
+                <div class="pulse-dot"></div>
+                <span id="sync-status-text">LIVE_CODEBASE_SYNC: ESTABLISHED</span>
+            </div>
+        </div>
+        <div class="repo-list" id="repo-list"></div>
+    </div>
+
+    <script>
+        let allProjects = [];
+        const bootLogs = [
+            "SCANNING_LOCAL_INTERFACE...",
+            "VERIFYING_GITHUB_HANDSHAKE...",
+            "LINKING_CORE_REPOSITORIES...",
+            "BUILDING_DATA_BRIDGES...",
+            "ENCRYPTING_SYNC_CHANNEL...",
+            "INTERFACE_CODEBASE_SYNC: READY."
+        ];
+
+        async function load() {
+            try {
+                const res = await fetch('projects.json');
+                allProjects = await res.json();
+            } catch (e) { console.error("Sync Error."); }
+        }
+
+        function bridgeToCode(cat) {
+            const syncOverlay = document.getElementById('sync-overlay');
+            const syncMsg = document.getElementById('sync-msg');
+            
+            // Start Sync Transition
+            syncOverlay.classList.add('active');
+            syncMsg.textContent = "EXTRACTING_CODEBASE_METADATA...";
+
+            setTimeout(() => {
+                const clusterMeta = {
+                    ml: { title: "MACHINE LEARNING ARCHIVE", status: "STABLE_DATA_FEED" },
+                    ai: { title: "NEURAL SYNTHESIS ARCHIVE", status: "ACTIVE_MODEL_STREAM" },
+                    data: { title: "DATA INFRASTRUCTURE HUB", status: "PIPELINE_SYNC_OK" },
+                    ops: { title: "OPERATIONS & DEPLOYMENT", status: "PRODUCTION_LINK_LIVE" }
+                };
+
+                const data = clusterMeta[cat];
+                document.getElementById('cluster-title').textContent = data.title;
+                document.getElementById('sync-status-text').textContent = `LIVE_SYNC: ${data.status}`;
+
+                const filtered = allProjects.filter(p => p.category === cat);
+                document.getElementById('repo-list').innerHTML = filtered.map(p => `
+                    <div class="repo-item">
+                        <h4>${p.name.toUpperCase()}</h4>
+                        <p>${p.desc}</p>
+                        <a href="${p.url}" target="_blank" class="repo-link">OPEN SOURCE CODE ➔</a>
+                    </div>
+                `).join('');
+
+                syncOverlay.classList.remove('active');
+                document.getElementById('details-overlay').classList.add('active');
+            }, 800);
+        }
+
+        function disconnectCode() {
+            document.getElementById('details-overlay').classList.remove('active');
+        }
+
+        // Clock & Cursor
+        function startClock() {
+            setInterval(() => {
+                document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false, timeZone: 'UTC' }) + ' UTC';
+            }, 1000);
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            const c = document.getElementById('cursor');
+            if(c) c.style.transform = `translate(${e.clientX - 12}px, ${e.clientY - 12}px)`;
+        });
+
+        // Boot Engine
+        let logIdx = 0, progress = 0;
+        function runBoot() {
+            if (progress < 100) {
+                progress += Math.random() * 8;
+                if (progress > 100) progress = 100;
+                document.getElementById('boot-fill').style.width = progress + '%';
+                document.getElementById('boot-perc').textContent = Math.floor(progress) + '%';
+                if (Math.random() > 0.6 && logIdx < bootLogs.length) {
+                    const l = document.createElement('div');
+                    l.textContent = `[ OK ] ${bootLogs[logIdx++]}`;
+                    document.getElementById('boot-log').appendChild(l);
+                    document.getElementById('boot-log').scrollTop = document.getElementById('boot-log').scrollHeight;
+                }
+                setTimeout(runBoot, 50);
+            } else {
+                setTimeout(() => {
+                    document.getElementById('preloader').style.opacity = '0';
+                    setTimeout(() => document.getElementById('preloader').style.visibility = 'hidden', 800);
+                }, 500);
+            }
+        }
+
+        window.onload = () => { startClock(); load(); runBoot(); };
+    </script>
+</body>
+</html>
