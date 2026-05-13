@@ -36,13 +36,18 @@ Each card will include:
 - **Description**: Concise 1-2 sentence overview.
 - **Author**: Link to the contributor's GitHub profile.
 
-### D. 'How to Contribute' Section
+### D. Communication Channels (Social Nodes)
+- Integrated video backgrounds for interactive social link cards.
+- **Nodes**: Discord (Community), GitHub (Source), WhatsApp (Direct Bridge).
+- **Styling**: Cyberpunk-inspired glassmorphism with video loops.
+
+### E. 'How to Contribute' Section
 - A visually distinct section at the bottom explaining the 3-step PR process:
   1. Pick a category repo.
   2. Fork and add your folder to `/projects`.
   3. Open a Pull Request.
 
-### E. Theme Toggle
+### F. Theme Toggle
 - A simple button to switch between "Midnight AI" (Dark) and "Clean Lab" (Light) themes.
 
 ## 5. Data Schema (`projects.json`)
